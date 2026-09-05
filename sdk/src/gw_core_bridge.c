@@ -153,7 +153,44 @@ double core_strtod(const char *nptr, char **endptr) { return gw_firmware_abi()->
  * word-aligned. __aeabi_memcpy4/8 and __aeabi_memset4/8/__aeabi_memclr4/8
  * are compiler-guaranteed 4/8-byte aligned by construction (the compiler
  * only emits them when it has proven the alignment itself), so those skip
- * the runtime check and go straight to the word-copy loop. */
+ * the runtime check and go straight to the word-copy loop.
+ *
+ * Define GW_CORE_BRIDGE_DISABLE_SDK_MEMCPY / _MEMSET / _MEMMOVE to
+ * selectively exclude those real functions (the __aeabi_mem* helpers
+ * remain and call into memcpy/memset/memmove).
+ * Define GW_CORE_BRIDGE_DISABLE_SDK_MEMOPS to exclude the whole block. */
+#ifndef GW_CORE_BRIDGE_DISABLE_SDK_MEMOPS
+/* Byte loops written through a volatile destination. Plain byte loops here get
+ * rewritten by GCC's loop-distribution pass (-ftree-loop-distribute-patterns,
+ * on from -O2/-Os) into calls to memcpy/memset — that is, these very functions
+ * calling themselves with unchanged arguments, which recurses until the stack
+ * faults. It only bites when a copy/fill ends on a non-multiple-of-4 tail, so
+ * it hides until some caller passes a misaligned buffer.
+ *
+ * The Makefile also passes -fno-tree-loop-distribute-patterns for this file;
+ * the volatile keeps the source correct on its own if that flag is ever lost.
+ * memset's tail is at most 3 bytes; memcpy/memmove use these for their
+ * unaligned fallback too (already the slow path under -mno-unaligned-access). */
+static void gw_bytes_set(uint8_t *d, uint8_t b, size_t n)
+{
+    volatile uint8_t *vd = d;
+    while (n--) *vd++ = b;
+}
+
+static void gw_bytes_copy_fwd(uint8_t *d, const uint8_t *s, size_t n)
+{
+    volatile uint8_t *vd = d;
+    while (n--) *vd++ = *s++;
+}
+
+static void gw_bytes_copy_bwd(uint8_t *d, const uint8_t *s, size_t n)
+{
+    volatile uint8_t *vd = d + n;
+    s += n;
+    while (n--) *--vd = *--s;
+}
+
+#ifndef GW_CORE_BRIDGE_DISABLE_SDK_MEMCPY
 void *memcpy(void *dst, const void *src, size_t n)
 {
     uint8_t *d = (uint8_t *)dst;
@@ -172,10 +209,12 @@ void *memcpy(void *dst, const void *src, size_t n)
             d += 4; s += 4; n -= 4;
         }
     }
-    while (n--) *d++ = *s++;
+    gw_bytes_copy_fwd(d, s, n);
     return dst;
 }
+#endif /* GW_CORE_BRIDGE_DISABLE_SDK_MEMCPY */
 
+#ifndef GW_CORE_BRIDGE_DISABLE_SDK_MEMMOVE
 void *memmove(void *dst, const void *src, size_t n)
 {
     uint8_t *d = (uint8_t *)dst;
@@ -186,11 +225,12 @@ void *memmove(void *dst, const void *src, size_t n)
     if (d < s || d >= s + n)
         return memcpy(dst, src, n); /* non-overlapping (or dst before src): forward copy is safe */
 
-    d += n; s += n;
-    while (n--) *--d = *--s;
+    gw_bytes_copy_bwd(d, s, n);
     return dst;
 }
+#endif /* GW_CORE_BRIDGE_DISABLE_SDK_MEMMOVE */
 
+#ifndef GW_CORE_BRIDGE_DISABLE_SDK_MEMSET
 void *memset(void *dst, int c, size_t n)
 {
     uint8_t *d = (uint8_t *)dst;
@@ -206,9 +246,10 @@ void *memset(void *dst, int c, size_t n)
         }
         while (n >= 4) { *(uint32_t *)d = w; d += 4; n -= 4; }
     }
-    while (n--) *d++ = b;
+    gw_bytes_set(d, b, n);
     return dst;
 }
+#endif /* GW_CORE_BRIDGE_DISABLE_SDK_MEMSET */
 
 /* ARM EABI memory helpers the compiler emits instead of plain memcpy/
  * memset/memmove for struct copies, local-array init, etc. (AAPCS
@@ -222,9 +263,7 @@ void __aeabi_memcpy4(void *d, const void *s, size_t n)
     uint32_t *dw = (uint32_t *)d;
     const uint32_t *sw = (const uint32_t *)s;
     while (n >= 4) { *dw++ = *sw++; n -= 4; }
-    uint8_t *db = (uint8_t *)dw;
-    const uint8_t *sb = (const uint8_t *)sw;
-    while (n--) *db++ = *sb++;
+    gw_bytes_copy_fwd((uint8_t *)dw, (const uint8_t *)sw, n);
 }
 void __aeabi_memcpy8(void *d, const void *s, size_t n) { __aeabi_memcpy4(d, s, n); }
 void __aeabi_memmove(void *d, const void *s, size_t n) { memmove(d, s, n); }
@@ -236,13 +275,13 @@ void __aeabi_memset4(void *d, size_t n, int c)
     uint32_t *dw = (uint32_t *)d;
     uint32_t w = 0x01010101u * (uint32_t)(uint8_t)c;
     while (n >= 4) { *dw++ = w; n -= 4; }
-    uint8_t *db = (uint8_t *)dw;
-    while (n--) *db++ = (uint8_t)c;
+    gw_bytes_set((uint8_t *)dw, (uint8_t)c, n);
 }
 void __aeabi_memset8(void *d, size_t n, int c) { __aeabi_memset4(d, n, c); }
 void __aeabi_memclr(void *d, size_t n) { memset(d, 0, n); }
 void __aeabi_memclr4(void *d, size_t n) { __aeabi_memset4(d, n, 0); }
 void __aeabi_memclr8(void *d, size_t n) { __aeabi_memset4(d, n, 0); }
+#endif /* GW_CORE_BRIDGE_DISABLE_SDK_MEMOPS */
 
 /* ====================================================================
  * libc: ctype.h
@@ -265,9 +304,17 @@ void  core_qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void
     gw_firmware_abi()->qsort(base, nmemb, size, compar);
 }
 double core_pow(double x, double y) { return gw_firmware_abi()->pow(x, y); }
+#ifndef GW_CORE_BRIDGE_DISABLE_SDK_MALLOC
 void  *core_malloc(size_t size) { return gw_firmware_abi()->malloc(size); }
 void   core_free(void *ptr) { gw_firmware_abi()->free(ptr); }
 void  *core_realloc(void *ptr, size_t size) { return gw_firmware_abi()->realloc(ptr, size); }
+/* Standard calloc matches malloc/free: AHB newlib heap, so free() works.
+ * Pool-specific callers keep using itc_calloc/dtc_calloc/ahb_calloc. */
+void  *core_calloc(size_t nmemb, size_t size)
+{
+    return (void *)gw_firmware_abi()->mem_ctl(GW_MEM_OP_ALLOC, GW_MEM_AHB, nmemb, size);
+}
+#endif
 
 /* ====================================================================
  * libc: stdio.h
@@ -330,6 +377,11 @@ int core_snprintf(char *s, size_t n, const char *fmt, ...)
     int r = gw_firmware_abi()->vsnprintf(s, n, fmt, ap);
     va_end(ap);
     return r;
+}
+
+int core_vsnprintf(char *s, size_t n, const char *fmt, va_list ap)
+{
+    return gw_firmware_abi()->vsnprintf(s, n, fmt, ap);
 }
 
 /* Minimal LCG — FCEU_MemoryRand / NSF visuals only need non-crypto entropy. */
@@ -611,6 +663,10 @@ void core_itc_init(void)
 {
     (void)gw_firmware_abi()->mem_ctl(GW_MEM_OP_INIT, GW_MEM_ITC, 0, 0);
 }
+size_t core_itc_get_free_size(void)
+{
+    return (size_t)gw_firmware_abi()->mem_ctl(GW_MEM_OP_FREE_SIZE, GW_MEM_ITC, 0, 0);
+}
 void *core_ram_malloc(size_t size)
 {
     return (void *)gw_firmware_abi()->mem_ctl(GW_MEM_OP_ALLOC, GW_MEM_RAM, 1, size);
@@ -634,6 +690,10 @@ void *core_dtc_calloc(size_t count, size_t size)
 void core_dtc_init(void)
 {
     (void)gw_firmware_abi()->mem_ctl(GW_MEM_OP_INIT, GW_MEM_DTC, 0, 0);
+}
+size_t core_dtc_get_free_size(void)
+{
+    return (size_t)gw_firmware_abi()->mem_ctl(GW_MEM_OP_FREE_SIZE, GW_MEM_DTC, 0, 0);
 }
 
 /* ====================================================================
@@ -697,6 +757,19 @@ rg_app_desc_t *core_odroid_system_get_app(void)
 uint32_t core_dma2d_m2m_rgb565_start(uint32_t src, uint32_t dst, uint16_t width, uint16_t height)
 {
     return gw_firmware_abi()->dma2d_m2m_rgb565_start(src, dst, width, height);
+}
+
+uint32_t core_dma2d_m2m_rgb565_start_ex(uint32_t src, uint32_t dst, uint16_t width, uint16_t height,
+                                        uint16_t src_offset, uint16_t dst_offset)
+{
+    return gw_firmware_abi()->dma2d_m2m_rgb565_start_ex(src, dst, width, height,
+                                                        src_offset, dst_offset);
+}
+
+uint32_t core_dma2d_r2m_rgb565_start(uint32_t color, uint32_t dst, uint16_t width, uint16_t height,
+                                     uint16_t dst_offset)
+{
+    return gw_firmware_abi()->dma2d_r2m_rgb565_start(color, dst, width, height, dst_offset);
 }
 
 uint32_t core_dma2d_poll(uint32_t timeout_ms)
@@ -810,6 +883,10 @@ void *core_ahb_calloc(size_t count, size_t size)
 {
     return (void *)gw_firmware_abi()->mem_ctl(GW_MEM_OP_ALLOC, GW_MEM_AHB, count, size);
 }
+size_t core_ahb_get_free_size(void)
+{
+    return (size_t)gw_firmware_abi()->mem_ctl(GW_MEM_OP_FREE_SIZE, GW_MEM_AHB, 0, 0);
+}
 
 uint8_t core_odroid_settings_cpu_oc_level_get(void) { return gw_firmware_abi()->odroid_settings_cpu_oc_level_get(); }
 void    core_SystemClock_Config(uint8_t new_oc_level) { gw_firmware_abi()->SystemClock_Config(new_oc_level); }
@@ -891,22 +968,14 @@ char *strtok(char *str, const char *delim)
 /* ====================================================================
  * Lynx (handy-go) helpers composed from existing ABI entries — no ABI
  * append needed. handy-go's LSS savestate path uses
- * `#define lss_printf(fp, str) (fputs(str, fp) >= 0)` (system.h), and
- * lynxdec.cpp's public-key decrypt temps use calloc()/free(). free() is
- * already trampolined; these two fill the remaining holes. calloc routes
- * through mem_ctl(GW_MEM_OP_ALLOC, GW_MEM_DTC, ...) (DTCM bump — same
- * pool as dtc_malloc; no per-block free).
+ * `#define lss_printf(fp, str) (fputs(str, fp) >= 0)` (system.h).
+ * lynxdec.cpp calloc()/free() go through the standard AHB trampolines.
  * ==================================================================== */
 int core_fputs(const char *s, FILE *stream)
 {
     const gw_firmware_abi_t *abi = gw_firmware_abi();
     size_t len = abi->strlen(s);
     return (abi->fwrite(s, 1, len, stream) == len) ? 0 : EOF;
-}
-
-void *core_calloc(size_t nmemb, size_t size)
-{
-    return (void *)gw_firmware_abi()->mem_ctl(GW_MEM_OP_ALLOC, GW_MEM_DTC, nmemb, size);
 }
 
 /* ====================================================================
@@ -1099,11 +1168,6 @@ uint8_t *core_odroid_overlay_cache_file_in_flash_relocate(
         file_path, file_size_p, byte_swap, relocate_cb);
 }
 
-void core_draw_error_screen(const char *main_line, const char *line_1, const char *line_2)
-{
-    gw_firmware_abi()->draw_error_screen(main_line, line_1, line_2);
-}
-
 /* ====================================================================
  * v2 append: Music / media
  * ==================================================================== */
@@ -1220,9 +1284,12 @@ double core_log10(double x)
  * call core_*; this bridge object does NOT, so these wrappers stay as
  * malloc/free/... and satisfy libstdc++ without dragging in newlib.
  * ==================================================================== */
+#ifndef GW_CORE_BRIDGE_DISABLE_SDK_MALLOC
 void  *malloc(size_t size) { return core_malloc(size); }
+void  *calloc(size_t nmemb, size_t size) { return core_calloc(nmemb, size); }
 void   free(void *ptr) { core_free(ptr); }
 void  *realloc(void *ptr, size_t size) { return core_realloc(ptr, size); }
+#endif
 void   abort(void) { core_abort(); while (1) {} }
 void   exit(int status) { core_exit(status); while (1) {} }
 int    memcmp(const void *a, const void *b, size_t n) { return core_memcmp(a, b, n); }
