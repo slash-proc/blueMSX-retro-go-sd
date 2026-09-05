@@ -1,0 +1,131 @@
+{
+  "$comment": "The hand-written half of this project's manifest. Everything else -- the systems, their folders, extensions and browse mode, the firmware ABI, sizes and hashes -- is derived from the packed core by scripts/make_manifest.py. Nothing derivable belongs here.",
+  "systems": {
+    "msx": {
+      "shortName": "MSX",
+      "compression": false,
+      "bios": [
+        {
+          "id": "msx1",
+          "filename": "MSX.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "MSX1 system ROM"
+          },
+          "description": {
+            "en": "Needed to run as an MSX1."
+          }
+        },
+        {
+          "id": "msx2",
+          "filename": "MSX2.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "MSX2 system ROM"
+          },
+          "description": {
+            "en": "Needed to run as an MSX2."
+          }
+        },
+        {
+          "id": "msx2ext",
+          "filename": "MSX2EXT.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "MSX2 extension ROM"
+          },
+          "description": {
+            "en": "Needed alongside MSX2.rom."
+          }
+        },
+        {
+          "id": "msx2p",
+          "filename": "MSX2P.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "MSX2+ system ROM"
+          },
+          "description": {
+            "en": "Needed to run as an MSX2+."
+          }
+        },
+        {
+          "id": "msx2pext",
+          "filename": "MSX2PEXT.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "MSX2+ extension ROM"
+          },
+          "description": {
+            "en": "Needed alongside MSX2P.rom."
+          }
+        },
+        {
+          "id": "msx2pmus",
+          "filename": "MSX2PMUS.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "FMPAC music ROM"
+          },
+          "description": {
+            "en": "Needed by MSX2 and MSX2+."
+          }
+        },
+        {
+          "id": "kanji",
+          "filename": "MSXKANJI.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "Kanji ROM"
+          },
+          "description": {
+            "en": "Needed by MSX2+ for Japanese software."
+          }
+        },
+        {
+          "id": "disk",
+          "filename": "PANASONICDISK.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "Disk controller ROM"
+          },
+          "description": {
+            "en": "Needed for any .dsk or .cdk disk image."
+          }
+        },
+        {
+          "id": "nextor",
+          "filename": "Nextor.rom",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "Nextor IDE ROM"
+          },
+          "description": {
+            "en": "Needed for .dsk images larger than 720 KiB."
+          }
+        },
+        {
+          "id": "romdb",
+          "filename": "msxromdb.bin",
+          "required": false,
+          "strict": false,
+          "label": {
+            "en": "Game database"
+          },
+          "description": {
+            "en": "Optional. Per-game controller and mapper settings; without it a generic mapping is used."
+          }
+        }
+      ]
+    }
+  }
+}
