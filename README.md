@@ -1,167 +1,99 @@
-# Retro-Go SD Core / Homebrew Template
+# MSX — Retro-Go SD dynamic core
 
-Standalone SDK and starter project for building **one** external emulator
-core **or** **one** GWHB homebrew for
+Standalone [blueMSX](external/blueMSX-go/) (blueMSX-go) core for
 [Game & Watch Retro-Go SD](https://github.com/sylverb/game-and-watch-retro-go-sd).
 
-This repository is the project: clone or copy it, set `PROJECT_KIND`, customize
-`src/main.c` / pack metadata, and ship a single `.bin`. Do not put several
-emulators or homebrews in the same tree.
+Build produces `msx.bin` → `/cores/msx.bin` on SD; software goes under
+`/roms/msx/` (extensions `.dsk`, `.rom`, `.mx1`, `.mx2`, `.cdk`).
 
-Both kinds share the same freestanding Cortex-M7 build (linked into
-`RAM_EMU`, talking to the launcher **only** through `gw_firmware_abi_t`).
-They differ in packaging and SD layout:
-
-
-| | Dynamic core (`PROJECT_KIND=core`) | Homebrew (`PROJECT_KIND=homebrew`) |
-|--|-----------------------------------|-------------------------------------|
-| Packer | `sdk/tools/pack_core.py` (`CORE`) | `sdk/tools/pack_homebrew.py` (`GWHB`) |
-| SD path | `/cores/<name>.bin` | `/roms/homebrew/<name>.bin` |
-| Launcher | New system tab (dirname + extensions) | Homebrew tab |
-| Assets | Pad/header 1bpp logos (`src/assets/`) | Optional JPEG cover (≤186×100, ≤10 KiB) |
-| `src/main.c` | Loads the ROM given by the launcher | No ROM — `ACTIVE_FILE` is this `.bin` |
-
-Headers, bridge trampolines, linker scripts, and packers are vendored under
-`sdk/`. You do **not** need a firmware checkout to compile.
+Covers MSX1, MSX2 and MSX2+ — the machine is chosen in the core's own menu
+(**Select MSX**), and which BIOS files you need depends on that choice.
 
 ## Requirements
 
-**Local build**
-
-- `arm-none-eabi-gcc` (v10+, same family as the firmware; hard-float
-  `fpv5-d16` is mandatory — ABI calling convention must match)
+- `arm-none-eabi-gcc` (hard-float `fpv5-d16`)
 - GNU Make
-- Python 3 + Pillow (`pip install -r requirements.txt`) for packaging
-  logos / homebrew covers from PNG/BMP/JPEG
+- Python 3 + Pillow (`pip install -r requirements.txt`)
 
-**Docker build** (no host toolchain)
-
-- Docker
-- Image [`sylverb/retro-go-sd-builder`](https://hub.docker.com/r/sylverb/retro-go-sd-builder)
-  (same tag as the firmware repo, default `v1.5`)
+Or Docker: `make docker` (image `sylverb/retro-go-sd-builder:v1.5`).
 
 ## Quick start
 
-Local (default = core):
-
 ```bash
+git submodule update --init --recursive
 make
-# or: make PROJECT_KIND=homebrew
+# → msx.bin
 ```
 
-Docker:
+Version in the packed header comes from `git describe --tags --dirty`, so an
+untagged build stamps `0.0.0`.
 
-```bash
-make docker
-make docker PROJECT_KIND=homebrew
-```
+## BIOS files
 
-Override the image tag if needed: `make docker RELEASE_VERSION=v1.5`.
+**This core ships no BIOS.** MSX needs system ROMs to boot at all, and which
+ones depends on the machine you select and the media you load. They go in
+`/bios/msx/` on the card:
 
-Produces:
+| File | Needed for |
+|---|---|
+| `MSX.rom` | MSX1 |
+| `MSX2.rom`, `MSX2EXT.rom` | MSX2 |
+| `MSX2P.rom`, `MSX2PEXT.rom` | MSX2+ |
+| `MSX2PMUS.rom` | FMPAC music — MSX2 and MSX2+ |
+| `MSXKANJI.rom` | MSX2+ Japanese software |
+| `PANASONICDISK.rom` | any `.dsk` / `.cdk` disk image |
+| `Nextor.rom` | `.dsk` images over 720 KiB (IDE/HDD) |
+| `msxromdb.bin` | optional: per-game controller and mapper settings |
 
-- **core:** `example.bin` → `/cores/example.bin`, test ROMs under `/roms/example/`
-- **homebrew:** `ExampleHB.bin` → `/roms/homebrew/ExampleHB.bin`
-  (optional override cover: `/covers/homebrew/ExampleHB.img`)
+blueMSX-go carries the machine ROMs under
+`external/blueMSX-go/system/bluemsx/Machines/Shared Roms/`. `msxromdb.bin` is
+generated from that repo's `msxromdb.xml` by its
+`create_compact_database_file.py`.
 
-The skeleton draws a framebuffer with the ROM / file name, beeps a square
-wave while a gameplay button is held, and wires save/load state, screenshot,
-sleep wake-up, and SRAM hooks via `odroid_system_emu_init`. Replace the stubs
-in `src/main.c` with your emulator or game.
+Nothing validates these on device — the slot loader ignores read failures, so a
+missing or truncated file is an unbootable machine with no error message.
 
-Useful Docker targets:
+## Multi-disk software
 
-- `make docker` — build + pack in the local builder image
-- `make docker_pull` — refresh the image from Docker Hub
-- `make docker_shell` — interactive shell in the same mount
+Disk swapping (**Change Dsk** in the core menu) finds the other disks by
+scanning the *same folder* for the *same extension* in alphabetical order. Keep
+a multi-disk set together in one directory and name the files so they sort in
+disk order.
 
-## Create your own core
+## Cheats
 
-1. Keep `PROJECT_KIND=core` (the default).
-2. Edit the top of `Makefile`: `CORE_NAME`, `CORE_ENTRY`, `CORE_C_SOURCES`,
-   and the `pack_core.py` metadata (`--system-name`, `--dirname`,
-   `--extensions`, …).
-3. Drop footer graphics in `src/assets/` and point `--pad-logo` / `--header-logo`
-   at PNG or BMP files. Dark/opaque pixels become the lit 1bpp bits.
-   Optional: `--logo-width` / `--logo-height` / `--logo-invert`.
-4. If the core supports cheat files on the SD card, set `--cheat-ext`
-   (`ggcodes`, `pceplus`, or `mcf`). Leave empty when unsupported.
-5. Implement the loop in `src/main.c` (entry is `app_main` by default).
-6. `make` → drop the `.bin` under `/cores/`.
-
-## Create your own homebrew
-
-1. Build with `PROJECT_KIND=homebrew`.
-2. Edit `Makefile`: `CORE_NAME`, pack `--name` / `--version` / `--cover` /
-   `--out`. You can drop the core-only pack recipe and `PROJECT_KIND_CORE`
-   branches once you no longer need them.
-3. Cover JPEG must decode ≤ **186×100** and be ≤ **10 KiB**. An on-disk
-   `/covers/homebrew/<stem>.img` **overrides** the embedded cover.
-4. Large assets that do not fit in RAM_EMU stay as **sibling files** under
-   `/roms/homebrew/` and are opened via the ABI.
-5. `make PROJECT_KIND=homebrew` → drop the `.bin` (and sidecars) under
-   `/roms/homebrew/`.
-
-Include order in `src/main.c`:
-
-```c
-#include "common.h"
-#include "odroid_system.h"
-/* … other firmware-style headers … */
-#include "gw_core_bridge.h"   /* last — rewrites ACTIVE_FILE / ram_start */
-```
-
-Undefined references at link time usually mean a symbol is missing from
-`sdk/src/gw_core_bridge_redefine_syms.txt` and/or lacks a `core_*` trampoline
-in `sdk/src/gw_core_bridge.c`. If the symbol is not on the ABI yet, extend
-the **firmware** ABI first, then refresh this SDK (see below).
+`.mcf` files under `/cheats/msx/`, named after the ROM.
 
 ## Layout
 
-```
-Makefile            Project build + pack + docker (PROJECT_KIND=core|homebrew)
-src/                Project sources (main.c) and core logos (assets/)
-sdk/
-  include/          Vendored headers (ABI, odroid, CMSIS/HAL, FatFs, gwhb.h, …)
-  src/              Bridge, entry trampoline, i18n, redefine-syms map
-  ld/               RAM_EMU linker scripts (must match firmware);
-                    start with ld/core_ram_emu.ld
-  tools/            pack_core.py, pack_homebrew.py
-  Makefile          Shared compile/link rules (included by the root Makefile)
-scripts/            Sync helper
-```
+| Path | |
+|---|---|
+| `external/blueMSX-go/` | emulator, submodule pinned to the firmware's commit |
+| `src/porting/` | the firmware's `Core/Src/porting/msx` glue, adapted |
+| `ld/msx_core.ld` | SDK default plus the MSX ROM unpack buffer |
+| `sdk/` | vendored SDK — refresh with `scripts/sync_from_firmware.sh` |
 
-## ABI compatibility
+### Differences from the firmware build
 
-Cores and homebrews embed `required_abi_version` and `required_abi_min_size`
-(from `GW_CORE_BUILT_ABI_*` in the bridge). The firmware refuses to load a
-binary that asks for a newer/larger ABI than it provides.
+The firmware compiles MSX in; this is a relocatable core loaded from SD, so a
+few things had to change rather than move:
 
-See `SDK_VERSION` for the snapshot this tree was cut from. After a released
-ABI:
+- **Menu strings** live in `src/porting/msx_i18n.c`. The firmware's `curr_lang`
+  is private to the firmware in the dynamic-core ABI, so each core carries its
+  own table and looks it up with `gw_i18n()`. All twelve MSX strings kept their
+  twelve translations.
+- **Switching machine** resets RAM_EMU (`ram_init`), not the AHB heap. The
+  firmware called `ahb_init()`, which a core must not do: that pool belongs to
+  the firmware and is shared with the launcher.
+- **`_MSX_ROM_UNPACK_BUFFER`** is defined by `ld/msx_core.ld` as whatever is
+  left of RAM_EMU after this core, mirroring the firmware's linker script.
+- **Compressed ROMs are out.** `GNW_DISABLE_COMPRESSION` is unconditional on
+  SD, so `.lzma` is not an accepted extension here.
+- Small shims in `src/porting/` stand in for firmware-private headers
+  (`gw_flash.h`, `gw_linker.h`, `gw_ofw.h`, `hw_sha1.h`, `rg_frogfs.h`); each
+  says in its own comment what it does and does not promise.
 
-- **Append** a new function pointer at the end of `gw_firmware_abi_t` →
-  usually no version bump; `required_abi_min_size` grows.
-- **Change a ctl signature** or remove/reorder fields → bump
-  `GW_FIRMWARE_ABI_VERSION`.
-- **Add a new ctl op** without changing the C signature → bump version (or
-  another capability flag) so binaries that need the op can require it.
+## Status
 
-While developing against unreleased firmware you may rebuild firmware +
-binaries together without bumping.
-
-## Refreshing the SDK from firmware
-
-If you maintain this tree alongside a firmware checkout:
-
-```bash
-./scripts/sync_from_firmware.sh /path/to/game-and-watch-retro-go-sd
-```
-
-That re-copies headers (including `gwhb.h`), bridge sources, linker scripts,
-`pack_core.py`, and `pack_homebrew.py`. Review the diff before committing.
-
-## License
-
-Build glue and the template are MIT (see `LICENSE`). Vendored files under
-`sdk/include/` keep their upstream licenses (firmware / HAL / FatFs / etc.).
+Builds clean and packs a valid `CORE` header. **Not yet run on hardware** —
+see `CHANGELOG.md` for what that leaves unverified.

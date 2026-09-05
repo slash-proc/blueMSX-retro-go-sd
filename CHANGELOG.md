@@ -1,15 +1,10 @@
 # Changelog
 
-This file is a template for the single project created from this repo.
-At project setup time you choose exactly one kind by setting `PROJECT_KIND`
-to `core` or `homebrew` (you will only build/release that chosen kind).
-
-Update the content for your project and keep the section heading matching
-the pushed release tag (CI requirement).
-
 This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Release tags must
-match a section heading exactly (for example `v1.0.0`).
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). A release tag must
+match a section heading exactly (for example `v0.1.0`): CI reads the matching
+section and uses it as the GitHub Release notes, and refuses to release without
+one.
 
 When you cut a release:
 
@@ -17,56 +12,55 @@ When you cut a release:
 2. Commit the changelog update.
 3. Push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
 
-CI reads the matching section and uses it as the GitHub Release notes. The tag
-is also used in staged asset names (`<binary>-<tag>.bin`, `<binary>-<tag>.zip`).
-
 ## [Unreleased]
 
 ### Added
 
-- (your changes here)
+- MSX, MSX2 and MSX2+ as a standalone Retro-Go SD dynamic core, packed as
+  `msx.bin` for `/cores/`. The emulator is
+  [blueMSX-go](https://github.com/sylverb/blueMSX-go) as a submodule, pinned to
+  `16a4d90` — the commit the firmware uses — plus the firmware's
+  `Core/Src/porting/msx` glue adapted for a relocatable core.
+- One launcher system: `MSX`, folder `/roms/msx/`, extensions
+  `dsk rom mx1 mx2 cdk`, cheats `.mcf`.
+- `ld/msx_core.ld`, which adds `_MSX_ROM_UNPACK_BUFFER` over the SDK default:
+  the tail of RAM_EMU after this core, mirroring what the firmware's linker
+  script gives the MSX overlay. 341 KiB at present.
 
 ### Changed
 
-- (your changes here)
+- Menu strings moved into the core (`src/porting/msx_i18n.c`). `curr_lang` and
+  `lang_t` are firmware-private in the dynamic-core ABI, so a core carries its
+  own table and resolves it with `gw_i18n()`. All twelve MSX strings kept all
+  twelve translations.
+- Switching machine now rewinds RAM_EMU via `ram_init()`. The firmware called
+  `ahb_init()`, which would rewind the *firmware's* AHB heap and take the
+  launcher's allocations with it; the ABI deliberately exposes no reset for
+  that pool.
+- `APPID_MSX` → `APPID_CORE`. The appid identifies the process role, not the
+  emulated machine, and the dynamic-core enum has three values.
+- SDK refreshed to the 2026-08-31 snapshot. The tree shipped with a 2026-08-14
+  snapshot predating `Core/Inc/porting/` and `appid.h`.
 
-### Fixed
+### Removed
 
-- (your changes here)
+- `.lzma` from the accepted extensions. `GNW_DISABLE_COMPRESSION` is
+  unconditional on SD builds, so a compressed ROM would be listed in the menu
+  and then handed to the core raw.
 
-## [v1.0.0] - 2026-08-12
+### Not verified
 
-Initial public release for your chosen kind (`core` or `homebrew`).
+**This core has never run on hardware.** It compiles warning-free, links inside
+its RAM_EMU budget, and packs a `CORE` header that parses correctly, and that is
+the whole of what has been checked. Specifically unproven:
 
-### Added
-
-- Freestanding Cortex-M7 skeleton (`src/main.c`) with LCD demo, square-wave
-  audio, save/load/screenshot hooks, and watchdog-friendly frame loop.
-- Vendored SDK, linker scripts, and ABI bridge for `gw_firmware_abi_t`.
-- Packaging for both project kinds:
-  - **core** → `pack_core.py`, SD path `/cores/<name>.bin`
-  - **homebrew** → `pack_homebrew.py`, SD path `/homebrews/<name>.bin`
-- Docker builder integration (`make docker`) using `sylverb/retro-go-sd-builder`.
-- CI build on push/PR and automated GitHub Release on `v*` tags.
-
-### Install
-
-Only the section corresponding to your chosen `PROJECT_KIND` is relevant for
-your derived project.
-
-**Core (`PROJECT_KIND=core`, default)**
-
-- Copy `example.bin` to `/cores/` on the SD card.
-- Place test ROMs under `/roms/example/` (dirname matches `CORE_NAME` in the
-  Makefile).
-- Requires firmware whose ABI matches `SDK_VERSION` in this repository.
-
-**Homebrew (`PROJECT_KIND=homebrew`)**
-
-- Set `PROJECT_KIND=homebrew` in the Makefile, rebuild, then copy
-  `ExampleHB.bin` to `/homebrews/`.
-- Optional coverflow override: `/covers/homebrew/ExampleHB.img` (JPEG ≤186×100,
-  ≤10 KiB).
-
-The release archive contains the ready-to-copy SD layout for the active project
-kind only (`cores/` or `homebrews/`).
+- **The YJK colour table.** blueMSX asks for 64 KiB from AHB via
+  `ahb_only_malloc`, which the dynamic-core ABI does not offer — `mem_ctl`'s
+  `GW_MEM_AHB` maps to `ahb_calloc`, which tries RAM_EMU first. The build maps
+  the call to `ahb_malloc`, so that 64 KiB may land in RAM_EMU instead. MSX2+
+  Screen 10/11/12 is where a problem would surface. A cleaner fix is an ABI
+  append exposing an AHB-only pool.
+- Whether 383 KiB of core plus a 341 KiB unpack buffer leaves enough RAM_EMU
+  for the machines people actually run, particularly MSX2+ with a large disk.
+- Every runtime path: BIOS loading, disk swapping, the game database, saves,
+  cheats, sound. None of it has executed.
