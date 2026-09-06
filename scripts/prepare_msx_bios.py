@@ -5,9 +5,9 @@ Same content the firmware used to stage via prepare_msx_bios_files:
   MSX*.rom, Nextor.rom, MSXKANJI.rom, PANASONICDISK.rom,
   PANASONICDISK_.rom (2nd FDD disabled), msxromdb.bin.
 
-Source tree is a blueMSX `system/` directory (Machines/Shared Roms +
-Databases/msxromdb.xml). Defaults search common local checkouts; override
-with --source or $BLUEMSX_SYSTEM.
+Source tree is the vendored `src/blueMSX-go/system/` directory
+(Machines/Shared Roms + Databases/msxromdb.xml). Override with --source or
+$BLUEMSX_SYSTEM.
 
 Usage:
   python3 scripts/prepare_msx_bios.py

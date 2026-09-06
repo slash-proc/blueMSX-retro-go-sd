@@ -224,8 +224,8 @@ clean::
 #######################################
 .PHONY: bios prepare_msx_bios
 
-# Copies Shared Roms from a blueMSX system/ tree and builds msxromdb.bin.
-# Override source: make bios BLUEMSX_SYSTEM=/path/to/blueMSX-go/system
+# Copies Shared Roms from vendored src/blueMSX-go/system (or BLUEMSX_SYSTEM=…).
+# Builds msxromdb.bin into bios/msx/.
 bios prepare_msx_bios:
 	$(V)$(ECHO) [ BIOS ] bios/msx
 	$(V)python3 scripts/prepare_msx_bios.py \

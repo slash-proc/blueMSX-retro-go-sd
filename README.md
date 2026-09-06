@@ -35,16 +35,16 @@ make
 
 Output: `blueMSX.bin` → copy to `/cores/blueMSX.bin` on the SD card.
 
-BIOS (same set the firmware used to stage under `/bios/msx/`):
+BIOS (from vendored `src/blueMSX-go/system/`):
 
 ```bash
 make bios
-# or: BLUEMSX_SYSTEM=/path/to/blueMSX-go/system make bios
+# optional override: BLUEMSX_SYSTEM=/path/to/other/system make bios
 ```
 
-Writes `bios/msx/` locally (ROMs + `msxromdb.bin`). Release zips include
-`cores/blueMSX.bin` **and** `bios/msx/*`. The same tree is reused by the
-host build.
+Writes `bios/msx/` locally (ROMs + `msxromdb.bin`, gitignored). Release zips
+include `cores/blueMSX.bin` **and** `bios/msx/*`. The same tree is reused by
+the host build.
 
 ### Host (desktop SDL preview)
 
@@ -67,7 +67,7 @@ Logos come from `src/assets/*.bmp` (from firmware `icons/c_msx.bmp` /
 ## Layout
 
 - `src/porting/msx/` — GNW glue (`app_main_msx`, save states, ROM DB, i18n)
-- `src/blueMSX-go/` — vendored blueMSX engine (subset)
+- `src/blueMSX-go/` — vendored blueMSX engine + `system/` (Shared Roms / DB)
 - `host/` — SDL desktop preview (`make host` → `blueMSX_host`)
 - `msx_core.ld` — ITCM + RAM_EMU linker script
 - `sdk/` — ABI bridge, headers, packer (synced from firmware)
