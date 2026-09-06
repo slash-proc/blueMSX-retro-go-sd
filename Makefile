@@ -206,7 +206,8 @@ pack: $(TARGET_BIN) $(BUILD_DIR)/$(CORE_NAME)_core_itcm.bin $(PAD_LOGO) $(HEADER
 
 all: pack
 
-.PHONY: print-PROJECT_KIND print-PACKED_BIN print-CORE_NAME print-DOCKER_IMAGE
+.PHONY: print-PROJECT_KIND print-PACKED_BIN print-CORE_NAME print-DOCKER_IMAGE \
+	print-TARGET_ELF print-TARGET_MAP
 print-PROJECT_KIND:
 	@echo $(PROJECT_KIND)
 print-PACKED_BIN:
@@ -215,6 +216,10 @@ print-CORE_NAME:
 	@echo $(CORE_NAME)
 print-DOCKER_IMAGE:
 	@echo $(DOCKER_IMAGE)
+print-TARGET_ELF:
+	@echo $(TARGET_ELF)
+print-TARGET_MAP:
+	@echo $(BUILD_DIR)/$(CORE_NAME)_core.map
 
 clean::
 	$(V)rm -f $(PACKED_BIN)
