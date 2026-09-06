@@ -110,6 +110,7 @@ def build_release_notes(
         f"- Project kind: `{project_kind}`",
         f"- Packed binary: `{packed_name}`",
         f"- SD install path: `{install_path}`",
+        f"- BIOS install path: `/bios/msx/`",
         f"- Release archive: `{archive_name}`",
         f"- Built with: `{docker_image}`",
         "",
@@ -119,11 +120,40 @@ def build_release_notes(
     ]
     if project_kind == "core":
         lines.append(f"- Test ROMs: `/roms/{core_name}/`")
+        lines.append("- Unzip keeps `cores/` + `bios/msx/` layout — copy both onto the SD card.")
     else:
         stem = Path(packed_name).stem
         lines.append(f"- Optional cover: `/covers/homebrew/{stem}.img`")
 
     return "\n".join(lines) + "\n"
+
+
+def collect_bios_msx(bios_dir: Path) -> list[tuple[Path, str]]:
+    """Return (src, zip_arcname) pairs for bios/msx → /bios/msx/ in the archive."""
+    if not bios_dir.is_dir():
+        raise SystemExit(
+            f"bios/msx not found at {bios_dir}. Run: make bios  "
+            "(or python3 scripts/prepare_msx_bios.py)"
+        )
+    required = (
+        "MSX.rom",
+        "MSX2.rom",
+        "MSX2EXT.rom",
+        "MSX2P.rom",
+        "MSX2PEXT.rom",
+        "MSX2PMUS.rom",
+        "Nextor.rom",
+        "MSXKANJI.rom",
+        "PANASONICDISK.rom",
+        "PANASONICDISK_.rom",
+        "msxromdb.bin",
+    )
+    missing = [n for n in required if not (bios_dir / n).is_file()]
+    if missing:
+        raise SystemExit(
+            f"bios/msx incomplete (missing {', '.join(missing)}). Run: make bios"
+        )
+    return [(bios_dir / n, f"bios/msx/{n}") for n in required]
 
 
 def stage_release(
@@ -153,6 +183,12 @@ def stage_release(
     sd_bin = sd_root / packed_name
     shutil.copy2(bin_path, sd_bin)
 
+    bios_pairs = collect_bios_msx(ROOT / "bios" / "msx")
+    bios_stage = out_dir / "bios" / "msx"
+    bios_stage.mkdir(parents=True, exist_ok=True)
+    for src, _arc in bios_pairs:
+        shutil.copy2(src, bios_stage / src.name)
+
     stem = Path(packed_name).stem
     tagged_bin = out_dir / f"{stem}-{tag}{Path(packed_name).suffix}"
     flat_bin = out_dir / packed_name
@@ -165,6 +201,8 @@ def stage_release(
         archive_path.unlink()
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(sd_bin, f"{sd_dir}/{packed_name}")
+        for src, arcname in bios_pairs:
+            zf.write(src, arcname)
 
     notes_path = out_dir / "RELEASE_NOTES.md"
     notes_path.write_text(
@@ -192,6 +230,7 @@ def stage_release(
     print(f"project_kind={project_kind}")
     print(f"packed_bin={packed_name}")
     print(f"sd_path=/{sd_dir}/{packed_name}")
+    print(f"bios_path=/bios/msx/ ({len(bios_pairs)} files)")
     print(f"archive={archive_path}")
     print(f"notes={notes_path}")
     print(f"files={files_path}")

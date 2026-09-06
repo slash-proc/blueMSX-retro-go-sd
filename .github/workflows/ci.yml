@@ -77,6 +77,15 @@ jobs:
           name: packed-bin
           path: dist
 
+      - name: Prepare MSX BIOS (/bios/msx)
+        run: |
+          set -euo pipefail
+          # Vendored src/blueMSX-go has no system/; fetch Shared Roms + DB from upstream.
+          git clone --depth 1 --filter=blob:none --sparse \
+            https://github.com/sylverb/blueMSX-go.git /tmp/blueMSX-go
+          git -C /tmp/blueMSX-go sparse-checkout set system
+          make bios BLUEMSX_SYSTEM=/tmp/blueMSX-go/system
+
       - name: Stage release assets
         run: |
           set -euo pipefail

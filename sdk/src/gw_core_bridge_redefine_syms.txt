@@ -70,6 +70,7 @@ vfprintf core_vfprintf
 sprintf core_sprintf
 vsprintf core_vsprintf
 snprintf core_snprintf
+vsnprintf core_vsnprintf
 exit core_exit
 # --- libc: assert.h ---
 __assert_func core_assert_func
@@ -92,6 +93,9 @@ lcd_clear_buffers core_lcd_clear_buffers
 lcd_sync core_lcd_sync
 lcd_clone core_lcd_clone
 lcd_sleep_while_swap_pending core_lcd_sleep_while_swap_pending
+lcd_setup_framebuffers core_lcd_setup_framebuffers
+lcd_get_bonus_pool core_lcd_get_bonus_pool
+lcd_set_clut core_lcd_set_clut
 # --- G&W hardware: audio ---
 audio_start_playing core_audio_start_playing
 audio_get_active_buffer core_audio_get_active_buffer
@@ -102,12 +106,14 @@ audio_get_buffer_length core_audio_get_buffer_length
 itc_malloc core_itc_malloc
 itc_calloc core_itc_calloc
 itc_init core_itc_init
+itc_get_free_size core_itc_get_free_size
 ram_malloc core_ram_malloc
 ram_calloc core_ram_calloc
 ram_get_free_size core_ram_get_free_size
 dtc_malloc core_dtc_malloc
 dtc_calloc core_dtc_calloc
 dtc_init core_dtc_init
+dtc_get_free_size core_dtc_get_free_size
 # --- G&W hardware: RTC ---
 # NOTE: per-field RTC getters and GW_GetUnixTM/mktime were dropped from
 # the firmware table. Cores read "now" via time()+localtime() only.
@@ -124,6 +130,8 @@ odroid_system_emu_init core_odroid_system_emu_init
 odroid_system_emu_load_state core_odroid_system_emu_load_state
 odroid_system_get_app core_odroid_system_get_app
 dma2d_m2m_rgb565_start core_dma2d_m2m_rgb565_start
+dma2d_m2m_rgb565_start_ex core_dma2d_m2m_rgb565_start_ex
+dma2d_r2m_rgb565_start core_dma2d_r2m_rgb565_start
 dma2d_poll core_dma2d_poll
 odroid_audio_mute core_odroid_audio_mute
 # --- retro-go: input / display ---
@@ -152,6 +160,7 @@ common_emu_clear_dwt_cycles core_common_emu_clear_dwt_cycles
 # --- v1 append: Mega Drive / gwenesis porting surface ---
 ahb_malloc core_ahb_malloc
 ahb_calloc core_ahb_calloc
+ahb_get_free_size core_ahb_get_free_size
 odroid_audio_init core_odroid_audio_init
 odroid_audio_sample_rate_get core_odroid_audio_sample_rate_get
 audio_start_playing_full_length core_audio_start_playing_full_length
@@ -167,14 +176,14 @@ cpumon_sleep core_cpumon_sleep
 strncat core_strncat
 sscanf core_sscanf
 odroid_settings_ActiveGameGenieCodes_is_enabled core_odroid_settings_ActiveGameGenieCodes_is_enabled
-# --- v2 append: TGB Dual (Game Boy / Game Boy Color, C++) porting surface ---
+# --- v2 append: palette settings (external GB/GBC and others) ---
 # NOTE: strtok is intentionally NOT here — gw_core_bridge.c defines a real
 # local implementation (static per-core state), same reasoning as
 # memcpy/memset/memmove above. NOTE: GW_GetUnixTM/mktime were dropped —
 # use time()+localtime() (see "time core_time" above).
 odroid_settings_Palette_get core_odroid_settings_Palette_get
 odroid_settings_Palette_set core_odroid_settings_Palette_set
-# --- Lynx (handy-go): fputs via fwrite/strlen; calloc via mem_ctl(DTCM) ---
+# --- Lynx (handy-go): fputs via fwrite/strlen; calloc via AHB (freeable) ---
 fputs core_fputs
 calloc core_calloc
 # --- Atari 2600 (Stella): atoi/strcasecmp composed from strtol/tolower ---
@@ -188,7 +197,7 @@ getenv core_getenv
 strtoul core_strtoul
 # --- FCEUmm (NES): mappers.pak ranged SD→RAM copy ---
 rg_storage_copy_file_range_to_ram core_rg_storage_copy_file_range_to_ram
-# --- blueMSX (MSX) ---
+# --- MSX (external core) ---
 ram_init core_ram_init
 odroid_audio_volume_get core_odroid_audio_volume_get
 calculate_sha1_file core_calculate_sha1_file
@@ -220,7 +229,6 @@ common_emu_frame_loop_reset core_common_emu_frame_loop_reset
 get_SystemCoreClock core_get_SystemCoreClock
 odroid_overlay_cache_file_in_flash_relocate core_odroid_overlay_cache_file_in_flash_relocate
 lcd_backlight_set core_lcd_backlight_set
-draw_error_screen core_draw_error_screen
 # --- Battery (BQ24072 via odroid_input) ---
 odroid_input_read_battery core_odroid_input_read_battery
 # --- Music / media homebrew (PCM ISR + UI chrome) ---
@@ -252,3 +260,4 @@ i18n_get_text_height core_i18n_get_text_height
 odroid_overlay_get_font_size core_odroid_overlay_get_font_size
 odroid_overlay_get_font_width core_odroid_overlay_get_font_width
 odroid_overlay_draw_fill_rect core_odroid_overlay_draw_fill_rect
+imlib_draw_image core_imlib_draw_image

@@ -8,3 +8,9 @@
 *.lst
 .DS_Store
 __pycache__/
+host_saves/
+blueMSX_host
+
+# Generated MSX BIOS tree (make bios); keep bios/msx/.gitkeep if present
+bios/msx/*
+!bios/msx/.gitkeep
