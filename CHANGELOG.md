@@ -14,6 +14,8 @@ When you cut a release:
 
 ## [Unreleased]
 
+## [v0.0.1] - 2026-09-07
+
 ### Added
 
 - MSX, MSX2 and MSX2+ as a standalone Retro-Go SD dynamic core, packed as
@@ -23,6 +25,10 @@ When you cut a release:
   `Core/Src/porting/msx` glue adapted for a relocatable core.
 - One launcher system: `MSX`, folder `/roms/msx/`, extensions
   `dsk rom mx1 mx2 cdk`, cheats `.mcf`.
+- No `bios[]` in the manifest, deliberately. All ten MSX ROMs ship with the
+  distribution rather than being found by the user, and `bios[]` means "you
+  must supply this". Where they come from once MSX leaves the firmware is an
+  open question recorded in `gwrg.json`.
 - `ld/msx_core.ld`, which adds `_MSX_ROM_UNPACK_BUFFER` over the SDK default:
   the tail of RAM_EMU after this core, mirroring what the firmware's linker
   script gives the MSX overlay. 341 KiB at present.
