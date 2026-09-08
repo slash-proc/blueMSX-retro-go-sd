@@ -192,6 +192,10 @@ $(BUILD_DIR)/main_msx.o:          CFLAGS := $(MSX_CFLAGS_O2)
 #######################################
 # Pack
 #######################################
+# Stamped into the packed header. --abbrev=0 gives the nearest tag alone, so a
+# commit past a release still yields something the packer accepts.
+CORE_VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)
+
 .PHONY: pack
 
 # Full git describe string passed to the packer (launcher shows this).
@@ -224,6 +228,8 @@ print-SIDECARS:
 	@echo $(SIDECARS)
 print-RO_BIN:
 	@echo $(RO_BIN)
+print-CORE_VERSION:
+	@echo $(CORE_VERSION)
 print-CORE_NAME:
 	@echo $(CORE_NAME)
 print-DOCKER_IMAGE:
