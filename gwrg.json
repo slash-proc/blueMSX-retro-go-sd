@@ -4,7 +4,108 @@
     "msx": {
       "shortName": "MSX",
       "compression": false,
-      "$comment": "No bios[] here on purpose. All ten MSX ROMs -- MSX.rom through Nextor.rom, plus the generated msxromdb.bin -- are shipped by the distribution, not found by the user: Makefile.common's prepare_msx_bios_files copies them out of blueMSX-go's Shared Roms, and msxromdb.bin is generated from msxromdb.xml by create_compact_database_file.py. bios[] means 'the user must supply this', so declaring them here would send people hunting for files they already have. Open question for the 2.0 split: with MSX leaving the firmware, this core has to ship them itself."
+      "$comment": "This project ships every one of these files. `make bios` copies the freely distributable Shared Roms out of the vendored src/blueMSX-go/system/ tree and generates msxromdb.bin, CI attaches them to the release, and make_manifest.py --bios fills in url/bytes/sha256 so each entry is mirrored and hash-checked like any other published artifact. A bios[] entry is no longer 'the user must supply this' -- an entry carrying url is one the project provides -- so declaring them here tells an installer what to install rather than sending anyone hunting.",
+      "bios": [
+        {
+          "id": "msx1",
+          "filename": "MSX.rom",
+          "required": true,
+          "label": { "en": "MSX BIOS" },
+          "description": {
+            "en": "The MSX1 system ROM. Loaded for every game running as an MSX1 machine, which is the default, and nothing boots without it."
+          }
+        },
+        {
+          "id": "msx2",
+          "filename": "MSX2.rom",
+          "required": false,
+          "label": { "en": "MSX2 BIOS" },
+          "description": {
+            "en": "The MSX2 system ROM. Loaded only when a game is set to run as an MSX2 machine; MSX1 titles never touch it."
+          }
+        },
+        {
+          "id": "msx2ext",
+          "filename": "MSX2EXT.rom",
+          "required": false,
+          "label": { "en": "MSX2 sub-ROM" },
+          "description": {
+            "en": "The MSX2 extension ROM, loaded alongside MSX2.rom. An MSX2 machine needs both; without it MSX2 BASIC and the disk system are incomplete."
+          }
+        },
+        {
+          "id": "msx2p",
+          "filename": "MSX2P.rom",
+          "required": false,
+          "label": { "en": "MSX2+ BIOS" },
+          "description": {
+            "en": "The MSX2+ system ROM. Loaded only when a game is set to run as an MSX2+ machine."
+          }
+        },
+        {
+          "id": "msx2pext",
+          "filename": "MSX2PEXT.rom",
+          "required": false,
+          "label": { "en": "MSX2+ sub-ROM" },
+          "description": {
+            "en": "The MSX2+ extension ROM, loaded alongside MSX2P.rom. An MSX2+ machine needs both."
+          }
+        },
+        {
+          "id": "msx2pmus",
+          "filename": "MSX2PMUS.rom",
+          "required": false,
+          "label": { "en": "MSX-MUSIC (FMPAC) ROM" },
+          "description": {
+            "en": "The FM sound ROM mapped into every MSX2 and MSX2+ machine. Without it those machines lose FM music; MSX1 does not use it."
+          }
+        },
+        {
+          "id": "msxkanji",
+          "filename": "MSXKANJI.rom",
+          "required": false,
+          "label": { "en": "Kanji ROM" },
+          "description": {
+            "en": "The Japanese character ROM, mapped only on an MSX2+ machine. Japanese software renders kanji text as garbage without it."
+          }
+        },
+        {
+          "id": "panasonicdisk",
+          "filename": "PANASONICDISK.rom",
+          "requiredFor": [".dsk", ".cdk"],
+          "label": { "en": "Disk ROM" },
+          "description": {
+            "en": "The Panasonic floppy controller BIOS. Loaded for every disk image on any machine type; cartridge dumps (.rom, .mx1, .mx2) do not need it."
+          }
+        },
+        {
+          "id": "panasonicdisk-nofdd2",
+          "filename": "PANASONICDISK_.rom",
+          "requiredFor": [".dsk", ".cdk"],
+          "label": { "en": "Disk ROM (second drive disabled)" },
+          "description": {
+            "en": "A patched Disk ROM that disables the second floppy drive to free memory, used in place of PANASONICDISK.rom for the disk games that need the extra RAM. The core picks between the two per game, so both have to be present for disk images."
+          }
+        },
+        {
+          "id": "nextor",
+          "filename": "Nextor.rom",
+          "required": false,
+          "label": { "en": "Nextor IDE ROM" },
+          "description": {
+            "en": "The Sunrise IDE / Nextor ROM used for hard-disk images -- a .dsk larger than 720 KiB, or a .cdk holding more than a floppy's worth of sectors. Ordinary floppy images never load it."
+          }
+        },
+        {
+          "id": "msxromdb",
+          "filename": "msxromdb.bin",
+          "required": false,
+          "label": { "en": "ROM settings database" },
+          "description": {
+            "en": "A compact database of per-game settings (mapper type, machine type, controls) generated from blueMSX's msxromdb.xml. Optional: without it games load with default settings, and some need the right mapper to run."
+          }
+        }
+      ]
     }
   }
 }

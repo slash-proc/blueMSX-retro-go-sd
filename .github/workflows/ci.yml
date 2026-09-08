@@ -130,6 +130,18 @@ jobs:
       # The ELF is published so a crash address can be resolved to a function.
       # It is named by the manifest but is not part of the install set, so it
       # has to be attached loose like any other file build_dist.py fetches.
+      # The MSX ROMs are freely distributable and vendored in this repo, so the
+      # project publishes them rather than asking a user to find them. They are
+      # attached loose beside the manifest: build_dist.py mirrors every file the
+      # manifest names off the release, and each bios[] entry names one.
+      - name: Stage the shipped BIOS files for publication
+        run: |
+          set -euo pipefail
+          for f in bios/msx/*; do
+            cp "${f}" "release/$(basename "${f}")"
+            basename "${f}" >> release/release-files.txt
+          done
+
       - name: Stage the ELF for publication
         run: |
           set -euo pipefail
@@ -155,9 +167,17 @@ jobs:
           if [ -n "${COVER_FULL}" ]; then
             COVER_ARGS+=(--cover "release/$(basename "${COVER_FULL}")")
           fi
+          # Each shipped BIOS file is matched to its declared bios[] entry by
+          # filename; make_manifest.py fills in url/bytes/sha256 from the file
+          # and refuses a file no system declares.
+          BIOS_ARGS=()
+          for f in bios/msx/*; do
+            BIOS_ARGS+=(--bios "release/$(basename "${f}")")
+          done
           python3 scripts/make_manifest.py \
             --bin "release/${PACKED_BIN}" \
             "${ARTIFACTS[@]}" \
+            "${BIOS_ARGS[@]}" \
             --elf "release/$(basename "${TARGET_ELF}")" \
             --tag "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
