@@ -192,6 +192,10 @@ $(BUILD_DIR)/main_msx.o:          CFLAGS := $(MSX_CFLAGS_O2)
 #######################################
 # Pack
 #######################################
+# Stamped into the packed header. --abbrev=0 gives the nearest tag alone, so a
+# commit past a release still yields something the packer accepts.
+CORE_VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)
+
 .PHONY: pack
 
 pack: $(TARGET_BIN) $(BUILD_DIR)/$(CORE_NAME)_core_itcm.bin $(PAD_LOGO) $(HEADER_LOGO)
@@ -201,7 +205,7 @@ pack: $(TARGET_BIN) $(BUILD_DIR)/$(CORE_NAME)_core_itcm.bin $(PAD_LOGO) $(HEADER
 		--system name="MSX",dirname=msx,pad_logo=$(PAD_LOGO),header_logo=$(HEADER_LOGO),ext="dsk rom mx1 mx2 cdk lzma",parse=rom,cheat_ext=mcf \
 		--logo-invert \
 		--core-name "blueMSX" \
-		--version 1.0.0 \
+		--version "$(CORE_VERSION)" \
 		--out $(PACKED_BIN)
 
 all: pack
@@ -220,6 +224,8 @@ print-SIDECARS:
 	@echo $(SIDECARS)
 print-RO_BIN:
 	@echo $(RO_BIN)
+print-CORE_VERSION:
+	@echo $(CORE_VERSION)
 print-CORE_NAME:
 	@echo $(CORE_NAME)
 print-DOCKER_IMAGE:
