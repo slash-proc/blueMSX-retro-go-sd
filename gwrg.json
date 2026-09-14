@@ -5,7 +5,7 @@
       "compression": false,
       "runtime": {
         "savestate": { "supported": true },
-        "save": { "supported": true }
+        "save": { "supported": true, "bytes": 1048576 }
       },
       "$comment": "These ship with the project. `make bios` copies the freely distributable Shared Roms out of src/blueMSX-go/system/ and generates msxromdb.bin; CI attaches them to the release and make_manifest.py --bios fills in url/bytes/sha256.",
       "bios": [

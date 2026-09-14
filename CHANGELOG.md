@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.0.5] - 2026-09-14
+
+### Changed
+
+- Bound per-title persistent-save storage at 1 MiB, covering the largest
+  writable MegaFlashROM SCC+ mapper compiled into the core.
+
 ## [v0.0.4] - 2026-09-13
 
 ### Changed
