@@ -194,20 +194,24 @@ $(BUILD_DIR)/main_msx.o:          CFLAGS := $(MSX_CFLAGS_O2)
 #######################################
 .PHONY: pack
 
+# Full git describe string passed to the packer (launcher shows this).
+# Override: make CORE_VERSION=v1.2.3
+CORE_VERSION ?= $(shell git describe --tags --dirty 2>/dev/null || echo NOTAG)
+
 pack: $(TARGET_BIN) $(BUILD_DIR)/$(CORE_NAME)_core_itcm.bin $(PAD_LOGO) $(HEADER_LOGO)
-	$(V)$(ECHO) [ PACK CORE ] $(PACKED_BIN)
+	$(V)$(ECHO) [ PACK CORE ] $(PACKED_BIN) version=$(CORE_VERSION)
 	$(V)python3 $(PACK_CORE) \
 		--elf $(TARGET_ELF) --bin $(TARGET_BIN) \
 		--system name="MSX",dirname=msx,pad_logo=$(PAD_LOGO),header_logo=$(HEADER_LOGO),ext="dsk rom mx1 mx2 cdk lzma",parse=rom,cheat_ext=mcf \
 		--logo-invert \
 		--core-name "blueMSX" \
-		--version 1.0.0 \
+		--version "$(CORE_VERSION)" \
 		--out $(PACKED_BIN)
 
 all: pack
 
 .PHONY: print-PROJECT_KIND print-PACKED_BIN print-CORE_NAME print-DOCKER_IMAGE \
-	print-TARGET_ELF print-TARGET_MAP
+	print-TARGET_ELF print-TARGET_MAP print-CORE_VERSION
 print-PROJECT_KIND:
 	@echo $(PROJECT_KIND)
 print-PACKED_BIN:
@@ -220,6 +224,8 @@ print-TARGET_ELF:
 	@echo $(TARGET_ELF)
 print-TARGET_MAP:
 	@echo $(BUILD_DIR)/$(CORE_NAME)_core.map
+print-CORE_VERSION:
+	@echo $(CORE_VERSION)
 
 clean::
 	$(V)rm -f $(PACKED_BIN)
