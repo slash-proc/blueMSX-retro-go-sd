@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.0.6] - 2026-09-15
+
+### Changed
+
+- Updated the SDK and used the tag for the core version.
+
 ## [v0.0.5] - 2026-09-14
 
 ### Changed
